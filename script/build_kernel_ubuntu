@@ -1,0 +1,17 @@
+#!/bin/env bash
+cd ~
+cp /root/customize_file/.config .config
+# 取消容器传入的默认代理
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+# 编译依赖项
+export DEBIAN_FRONTEND=noninteractive
+export APT_LISTCHANGES_FRONTEND=none
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential flex bison dwarves libssl-dev libelf-dev cpio ncurses-bin ncurses-term libncurses5-dev libncursesw5-dev libncurses-dev python3 bc git kmod
+# 克隆内核源码
+git clone --branch linux-msft-wsl-6.6.y --single-branch --depth 3 https://github.com/microsoft/WSL2-Linux-Kernel.git kernel_customize
+# 注入配置文件，也可在内核仓库根目录下make menuconfig自定义配置
+cp .config kernel_customize/.config
+# 编译后会在生成内核镜像文件于 arch/x86/boot/bzImage 路径下，模块会安装在指定目录 modules 下
+cd kernel_customize/
+time { make KCONFIG_CONFIG=.config -j$(nproc) && make INSTALL_MOD_PATH="$PWD/modules" modules_install; }

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 用法: ./check_kconfig_deps.sh SYMBOL
+set -euo pipefail
+SYM="$1"
+# 找文件
+file=$(grep -R --line-number "config $SYM" 2>/dev/null | head -n1 | cut -d: -f1)
+if [ -z "$file" ]; then
+  echo "Cannot find config $SYM in Kconfig files." >&2
+  exit 2
+fi
+
+echo "Kconfig file: $file"
+echo "Kconfig snippet:"
+# 显示 config 段落（从 config 开始到下一个 config）
+start_line=$(grep -n "config $SYM" "$file" | cut -d: -f1 | head -n1)
+# 打印从 start_line 到下一次出现 ^config 的行前一行
+total_lines=$(wc -l < "$file")
+tail -n +"$start_line" "$file" | awk '/^config / && NR>1{exit}{print}'
+
+# 提取 depends on / select 行
+echo
+echo "Depends/select lines:"
+grep -A2 -n "config $SYM" "$file" | sed -n '1,40p' | grep -E 'depends on|select' || true
+
+# 提取 depends 表达式并解析其中可能的符号
+deps=$(grep -A2 -n "config $SYM" "$file" | sed -n '1,40p' | grep -oP 'depends on .*' || true)
+echo
+echo "Depends expr: $deps"
+echo
+if [ -z "$deps" ]; then
+  echo "No explicit 'depends on' found (maybe only selects or none)."
+fi
+
+# 列出 depends 表达式里出现的所有大写符号片段并检查 .config
+echo "Checking symbol states in .config (or include/config/auto.conf if .config missing):"
+conf=".config"
+if [ ! -f "$conf" ]; then
+  # fallback
+  conf="include/config/auto.conf"
+fi
+
+for token in $(echo "$deps" | grep -oE '[A-Z0-9_]{2,}' | sort -u); do
+  # skip common keywords (and, or, !)
+  if [[ "$token" =~ ^(and|or|not|if|defined|__)?$ ]]; then
+    continue
+  fi
+  # print config state
+  if grep -q "^CONFIG_${token}=y" "$conf" 2>/dev/null; then
+    state="y"
+  elif grep -q "^CONFIG_${token}=m" "$conf" 2>/dev/null; then
+    state="m"
+  elif grep -q "^# CONFIG_${token} is not set" "$conf" 2>/dev/null; then
+    state="n"
+  else
+    state="unknown"
+  fi
+  printf "%-30s %s\n" "CONFIG_${token}" "$state"
+done
