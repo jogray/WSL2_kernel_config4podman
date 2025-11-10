@@ -22,5 +22,5 @@ kernel=D:\\WSL\\bzImage
 确定wsl中所有工作已保存后直接`wsl --shutdown`后再启动wsl即可，目前`minikube start --driver=podman`仍有未知错误无法启动，`KIND_EXPERIMENTAL_PROVIDER=podman kind create cluster`可以启动集群
 
 参考：
-[issue中找到的解决方法](https://github.com/microsoft/WSL/issues/6044#issuecomment-1165103238)
+[issue中找到的解决方法](https://github.com/microsoft/WSL/issues/6044#issuecomment-1165103238)、
 [WSL2内核编译说明](https://github.com/microsoft/WSL2-Linux-Kernel?tab=readme-ov-file#build-instructions)
